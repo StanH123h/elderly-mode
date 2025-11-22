@@ -25,25 +25,73 @@
 
   /**
    * Main initialization function
+   * 改进版: 添加错误处理和降级机制
    */
   async function init() {
-    console.log('[Elderly Mode] Initializing...');
-    
-    // Get current domain
-    const domain = getDomain();
-    console.log('[Elderly Mode] Domain:', domain);
-    
-    // Load rules for this domain
-    const rules = await loadRules(domain);
-    console.log('[Elderly Mode] Rules loaded:', rules);
-    
-    // Apply optimizations
-    applyOptimizations(rules);
-    
-    // Add control panel
-    addControlPanel();
-    
-    console.log('[Elderly Mode] Initialization complete!');
+    try {
+      console.log('[Elderly Mode] Initializing...');
+
+      // Get current domain
+      const domain = getDomain();
+      console.log('[Elderly Mode] Domain:', domain);
+
+      // Load rules for this domain
+      const rules = await loadRules(domain);
+      console.log('[Elderly Mode] Rules loaded:', rules);
+
+      // Apply optimizations with error handling
+      try {
+        applyOptimizations(rules);
+      } catch (error) {
+        console.error('[Elderly Mode] Error applying optimizations:', error);
+        // 降级: 只应用基础样式
+        injectBaseStyles();
+        enlargeText();
+        addControlPanel();
+        showErrorNotification('部分功能加载失败,已启用基础模式');
+      }
+
+      // Add control panel
+      if (!document.querySelector('.elderly-control-panel')) {
+        addControlPanel();
+      }
+
+      console.log('[Elderly Mode] Initialization complete!');
+
+    } catch (error) {
+      console.error('[Elderly Mode] Fatal initialization error:', error);
+      // 完全降级: 显示错误信息
+      showErrorNotification('Elderly Mode 启动失败,请刷新页面重试');
+    }
+  }
+
+  /**
+   * 显示错误通知
+   */
+  function showErrorNotification(message) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff5252;
+      color: white;
+      padding: 15px 30px;
+      border-radius: 8px;
+      font-size: 18px;
+      z-index: 9999999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+
+    // 5秒后自动消失
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      notification.style.transition = 'opacity 0.5s';
+      setTimeout(() => notification.remove(), 500);
+    }, 5000);
   }
 
   /**
@@ -56,20 +104,104 @@
   }
 
   /**
+   * 内置规则配置 - 减少网络依赖
+   */
+  const BUILT_IN_RULES = {
+    'amazon-com': {
+      layout: 'split',
+      enlargeText: true,
+      simplifyNav: true,
+      removeAds: true,
+      highContrast: false,
+      removeSelectors: [
+        '#nav-ad-container',
+        '.a-carousel-card[data-a-card-type="ad"]',
+        '[data-component-type="sp-sponsored-result"]',
+        '.AdHolder',
+        '.sp_desktop_sponsored_label',
+        '#percolate-ui-ilm_div',
+        '#nav-flyout-searchAjax',
+        '.celwidget[cel_widget_id*="ad"]',
+        '#rhf',
+        '#dp-ads-center-promo',
+        '#sims-consolidated-1',
+        '#sims-consolidated-2'
+      ],
+      keepSelectors: [
+        'input', 'button', 'select', '#productTitle',
+        '#priceblock_ourprice', '#priceblock_dealprice',
+        '.product-image', '#feature-bullets', '#productDescription'
+      ]
+    },
+    'cnn-com': {
+      layout: 'split',
+      enlargeText: true,
+      simplifyNav: true,
+      removeAds: true,
+      highContrast: false,
+      removeSelectors: [
+        '.ad', '.ad-wrapper', '.banner-ad', '[class*="advertisement"]',
+        '.video-ad', '#header-nav-container', '.related-content',
+        '.zn-body__rail', '[data-ad-type]', '.el__embedded--standard', '.ad-slot-wrap'
+      ],
+      keepSelectors: [
+        'article', '.headline', '.paragraph', 'h1', 'h2',
+        'img', 'video', 'button', 'input', 'select'
+      ]
+    }
+  };
+
+  /**
    * Load rules for the current domain
+   * 改进版: 优先使用内置规则,减少网络请求
    */
   async function loadRules(domain) {
+    // 1. 先检查内置规则
+    if (BUILT_IN_RULES[domain]) {
+      console.log(`[Elderly Mode] Using built-in rules for ${domain}`);
+      return BUILT_IN_RULES[domain];
+    }
+
+    // 2. 尝试从本地存储加载缓存的规则
     try {
-      // Try to load domain-specific rules
-      const response = await fetch(`${CONFIG.baseURL}/rules/${domain}.json`);
-      if (response.ok) {
-        return await response.json();
+      const cached = localStorage.getItem(`elderly-rules-${domain}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const cacheTime = parsed.timestamp || 0;
+        const now = Date.now();
+        // 缓存7天有效
+        if (now - cacheTime < 7 * 24 * 60 * 60 * 1000) {
+          console.log(`[Elderly Mode] Using cached rules for ${domain}`);
+          return parsed.rules;
+        }
       }
     } catch (error) {
-      console.log('[Elderly Mode] No specific rules for this domain, using defaults');
+      console.warn('[Elderly Mode] Failed to load cached rules:', error);
     }
-    
-    // Fallback to default rules
+
+    // 3. 尝试从远程加载(仅作为fallback)
+    try {
+      const response = await fetch(`${CONFIG.baseURL}/rules/${domain}.json`);
+      if (response.ok) {
+        const rules = await response.json();
+        // 缓存到本地存储
+        try {
+          localStorage.setItem(`elderly-rules-${domain}`, JSON.stringify({
+            rules: rules,
+            timestamp: Date.now()
+          }));
+        } catch (e) {
+          console.warn('[Elderly Mode] Failed to cache rules:', e);
+        }
+        console.log(`[Elderly Mode] Loaded remote rules for ${domain}`);
+        return rules;
+      }
+    } catch (error) {
+      console.log('[Elderly Mode] No remote rules available, using defaults');
+    }
+
+    // 4. Fallback到默认规则
+    console.log('[Elderly Mode] Using default rules');
     return getDefaultRules();
   }
 
@@ -182,8 +314,9 @@
         min-height: 100vh !important;
         padding: 20px !important;
         background: #FFFFFF !important;
+        position: relative !important;
       }
-      
+
       /* Left content area */
       .elderly-content-area {
         flex: 7 !important;
@@ -192,8 +325,24 @@
         border: 2px solid #E0E0E0 !important;
         border-radius: 8px !important;
         overflow-y: auto !important;
+        max-height: calc(100vh - 40px) !important;
       }
-      
+
+      /* 原始body内容包装器 */
+      #elderly-original-body-wrapper {
+        width: 100% !important;
+      }
+
+      /* 隐藏原始交互元素但保留在DOM中 */
+      .elderly-original-element {
+        position: absolute !important;
+        left: -9999px !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
       /* Right action area */
       .elderly-action-area {
         flex: 3 !important;
@@ -286,86 +435,99 @@
 
   /**
    * Apply split layout: left content, right actions
+   * 改进版: 使用CSS而非破坏性DOM操作,保留事件监听器
    */
   function applySplitLayout() {
     console.log('[Elderly Mode] Applying split layout...');
-    
-    // Create container structure
+
+    // 先隐藏body内容,避免闪烁
+    document.body.style.visibility = 'hidden';
+
+    // 创建容器结构
     const container = document.createElement('div');
     container.className = 'elderly-split-container';
-    
+    container.id = 'elderly-mode-container';
+
     const contentArea = document.createElement('div');
     contentArea.className = 'elderly-content-area';
-    
+    contentArea.id = 'elderly-content-area';
+
     const actionArea = document.createElement('div');
     actionArea.className = 'elderly-action-area';
-    
-    // Add title to action area
+    actionArea.id = 'elderly-action-area';
+
+    // 添加操作区标题
     const actionTitle = document.createElement('h2');
-    actionTitle.textContent = 'Actions & Inputs';
+    actionTitle.textContent = '操作区 (Actions)';
     actionArea.appendChild(actionTitle);
-    
-    // Collect all interactive elements
+
+    // 收集所有交互元素
     const interactiveElements = collectInteractiveElements();
-    
-    // Move interactive elements to action area
-    interactiveElements.forEach(el => {
+
+    // 使用事件委托处理交互元素
+    interactiveElements.forEach((el, index) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'elderly-action-item';
-      
-      // Add label if the element has associated label or placeholder
+      wrapper.dataset.originalElementId = `elderly-ref-${index}`;
+
+      // 给原始元素添加标记
+      el.dataset.elderlyRef = `elderly-ref-${index}`;
+      el.classList.add('elderly-original-element');
+
+      // 获取元素标签
       const label = getElementLabel(el);
       if (label) {
         const labelEl = document.createElement('label');
         labelEl.textContent = label;
         wrapper.appendChild(labelEl);
       }
-      
-      // Clone the element (keep original hidden)
-      const clone = el.cloneNode(true);
-      
-      // Preserve event listeners by copying data attributes
-      copyElementProperties(el, clone);
-      
-      wrapper.appendChild(clone);
+
+      // 创建代理元素(不是克隆,而是创建新的代理)
+      const proxy = createProxyElement(el, index);
+      wrapper.appendChild(proxy);
       actionArea.appendChild(wrapper);
-      
-      // Hide original element
+
+      // 隐藏原始元素(用CSS而不是删除)
       el.classList.add('elderly-hidden');
+      el.setAttribute('aria-hidden', 'true');
+      el.tabIndex = -1; // 禁止Tab键访问
     });
-    
-    // If no interactive elements found, add a message
+
+    // 如果没有交互元素
     if (interactiveElements.length === 0) {
       const noActions = document.createElement('p');
-      noActions.textContent = 'No input fields or buttons detected on this page.';
+      noActions.textContent = '此页面没有检测到输入框或按钮。';
       noActions.style.color = '#666666';
       actionArea.appendChild(noActions);
     }
-    
-    // Move remaining content to content area
-    const bodyContent = document.body.cloneNode(true);
-    
-    // Remove already processed interactive elements from content
-    bodyContent.querySelectorAll('.elderly-hidden').forEach(el => el.remove());
-    
-    // Remove scripts and styles from content
-    bodyContent.querySelectorAll('script, style, .elderly-control-panel').forEach(el => el.remove());
-    
-    contentArea.appendChild(bodyContent);
-    
-    // Clear body and add new structure
-    const controlPanel = document.querySelector('.elderly-control-panel');
-    document.body.innerHTML = '';
-    
+
+    // 将原始body包装到内容区(不删除,保留所有事件)
+    // 使用CSS让原始内容在视觉上出现在左侧
+    const originalBodyWrapper = document.createElement('div');
+    originalBodyWrapper.id = 'elderly-original-body-wrapper';
+
+    // 将body的所有直接子元素移到wrapper中(除了我们的容器)
+    Array.from(document.body.children).forEach(child => {
+      if (!child.id || !child.id.startsWith('elderly-')) {
+        originalBodyWrapper.appendChild(child);
+      }
+    });
+
+    contentArea.appendChild(originalBodyWrapper);
+
+    // 组装结构
     container.appendChild(contentArea);
     container.appendChild(actionArea);
-    document.body.appendChild(container);
-    
-    // Re-add control panel
-    if (controlPanel) {
-      document.body.appendChild(controlPanel);
-    }
-    
+
+    // 将容器添加到body开头
+    document.body.insertBefore(container, document.body.firstChild);
+
+    // 恢复可见性
+    document.body.style.visibility = 'visible';
+
+    // 启动MutationObserver监听动态变化
+    startDynamicContentObserver();
+
     console.log('[Elderly Mode] Split layout applied!');
   }
 
@@ -447,39 +609,186 @@
   }
 
   /**
-   * Copy important properties from original element to clone
+   * 创建代理元素 - 不克隆,而是创建新元素并转发事件
+   * 这样可以完美保留原始元素的所有React/Vue事件监听器
    */
-  function copyElementProperties(original, clone) {
-    // Copy value for inputs
-    if (original.value) {
-      clone.value = original.value;
-    }
-    
-    // Copy checked state for checkboxes/radios
-    if (original.type === 'checkbox' || original.type === 'radio') {
-      clone.checked = original.checked;
-    }
-    
-    // Sync values on change
-    clone.addEventListener('input', () => {
-      original.value = clone.value;
-      // Trigger change event on original
-      original.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    
-    clone.addEventListener('change', () => {
-      original.value = clone.value;
-      original.checked = clone.checked;
-      original.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    
-    // For buttons, trigger click on original when clone is clicked
-    if (clone.tagName === 'BUTTON' || clone.type === 'submit') {
-      clone.addEventListener('click', (e) => {
+  function createProxyElement(original, index) {
+    const tagName = original.tagName.toLowerCase();
+    let proxy;
+
+    // 根据元素类型创建对应的代理
+    if (tagName === 'input' || tagName === 'textarea') {
+      proxy = document.createElement(tagName);
+      proxy.type = original.type || 'text';
+      proxy.value = original.value || '';
+      proxy.placeholder = original.placeholder || '';
+      proxy.name = original.name || '';
+
+      // 双向同步
+      proxy.addEventListener('input', (e) => {
+        original.value = e.target.value;
+        // 触发原始元素的事件(兼容React等框架)
+        const event = new Event('input', { bubbles: true });
+        Object.defineProperty(event, 'target', { writable: false, value: original });
+        original.dispatchEvent(event);
+      });
+
+      proxy.addEventListener('change', (e) => {
+        original.value = e.target.value;
+        const event = new Event('change', { bubbles: true });
+        Object.defineProperty(event, 'target', { writable: false, value: original });
+        original.dispatchEvent(event);
+      });
+
+      // 从原始元素同步回代理(处理程序化更新)
+      const syncFromOriginal = () => {
+        if (proxy.value !== original.value) {
+          proxy.value = original.value;
+        }
+      };
+      setInterval(syncFromOriginal, 100); // 每100ms检查一次
+
+    } else if (tagName === 'button' || tagName === 'a') {
+      proxy = document.createElement('button');
+      proxy.textContent = original.textContent.trim() || original.value || '按钮';
+      proxy.className = 'elderly-proxy-button';
+
+      proxy.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 直接触发原始元素的点击
+        console.log(`[Elderly Mode] Proxy button clicked, triggering original element`);
+        original.click();
+      });
+
+    } else if (tagName === 'select') {
+      proxy = document.createElement('select');
+      // 复制所有option
+      Array.from(original.options).forEach(option => {
+        const newOption = document.createElement('option');
+        newOption.value = option.value;
+        newOption.textContent = option.textContent;
+        newOption.selected = option.selected;
+        proxy.appendChild(newOption);
+      });
+
+      proxy.addEventListener('change', (e) => {
+        original.value = e.target.value;
+        const event = new Event('change', { bubbles: true });
+        Object.defineProperty(event, 'target', { writable: false, value: original });
+        original.dispatchEvent(event);
+      });
+
+    } else {
+      // 其他类型的交互元素,创建通用按钮
+      proxy = document.createElement('button');
+      proxy.textContent = original.textContent.trim() || '交互元素';
+      proxy.addEventListener('click', (e) => {
         e.preventDefault();
         original.click();
       });
     }
+
+    proxy.dataset.elderlyProxy = index;
+    proxy.className += ' elderly-proxy-element';
+
+    return proxy;
+  }
+
+  /**
+   * MutationObserver监听器 - 处理SPA应用的动态内容
+   */
+  function startDynamicContentObserver() {
+    const observer = new MutationObserver((mutations) => {
+      let needsUpdate = false;
+
+      mutations.forEach((mutation) => {
+        // 检查是否有新的交互元素添加
+        if (mutation.addedNodes.length > 0) {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === 1) { // Element节点
+              // 检查是否是交互元素
+              const isInteractive = node.matches && (
+                node.matches('button') ||
+                node.matches('input') ||
+                node.matches('select') ||
+                node.matches('textarea')
+              );
+
+              if (isInteractive && !node.dataset.elderlyRef && !node.classList.contains('elderly-proxy-element')) {
+                needsUpdate = true;
+              }
+            }
+          });
+        }
+      });
+
+      if (needsUpdate) {
+        console.log('[Elderly Mode] Detected new interactive elements, updating...');
+        // 防抖: 300ms后更新
+        clearTimeout(window.elderlyUpdateTimeout);
+        window.elderlyUpdateTimeout = setTimeout(() => {
+          updateActionArea();
+        }, 300);
+      }
+    });
+
+    // 监听整个body的变化
+    const contentWrapper = document.getElementById('elderly-original-body-wrapper');
+    if (contentWrapper) {
+      observer.observe(contentWrapper, {
+        childList: true,
+        subtree: true
+      });
+    }
+
+    window.elderlyMutationObserver = observer;
+  }
+
+  /**
+   * 更新操作区 - 当检测到新的交互元素时
+   */
+  function updateActionArea() {
+    const actionArea = document.getElementById('elderly-action-area');
+    if (!actionArea) return;
+
+    // 收集所有尚未处理的交互元素
+    const newElements = collectInteractiveElements().filter(el => !el.dataset.elderlyRef);
+
+    if (newElements.length === 0) return;
+
+    console.log(`[Elderly Mode] Adding ${newElements.length} new interactive elements`);
+
+    let currentMaxIndex = 0;
+    document.querySelectorAll('[data-elderly-ref]').forEach(el => {
+      const index = parseInt(el.dataset.elderlyRef.replace('elderly-ref-', ''));
+      if (index > currentMaxIndex) currentMaxIndex = index;
+    });
+
+    newElements.forEach((el, i) => {
+      const index = currentMaxIndex + i + 1;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'elderly-action-item';
+
+      el.dataset.elderlyRef = `elderly-ref-${index}`;
+      el.classList.add('elderly-original-element');
+
+      const label = getElementLabel(el);
+      if (label) {
+        const labelEl = document.createElement('label');
+        labelEl.textContent = label;
+        wrapper.appendChild(labelEl);
+      }
+
+      const proxy = createProxyElement(el, index);
+      wrapper.appendChild(proxy);
+      actionArea.appendChild(wrapper);
+
+      el.classList.add('elderly-hidden');
+      el.setAttribute('aria-hidden', 'true');
+      el.tabIndex = -1;
+    });
   }
 
   /**
