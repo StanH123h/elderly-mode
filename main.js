@@ -3,7 +3,7 @@
  * Version 2.0 - Smart block division instead of element matching
  */
 
-(function() {
+(function () {
   'use strict';
 
   const CONFIG = {
@@ -35,28 +35,28 @@
    */
   async function init() {
     console.log('[Elderly Mode v2] Initializing semantic block recognition...');
-    
+
     injectBaseStyles();
-    
+
     // Step 1: Identify all blocks in the page
     const blocks = identifyBlocks(document.body);
     console.log('[Elderly Mode v2] Identified blocks:', blocks);
-    
+
     // Step 2: Classify each block
     const classified = classifyBlocks(blocks);
     console.log('[Elderly Mode v2] Classified blocks:', classified);
-    
+
     // Step 3: Decide layout strategy
     const strategy = decideLayoutStrategy(classified);
     console.log('[Elderly Mode v2] Layout strategy:', strategy);
-    
+
     // Step 4: Apply layout
     if (strategy === 'split') {
       applySplitLayout(classified);
     } else if (strategy === 'enlarge-only') {
       applyEnlargeOnly();
     }
-    
+
     addControlPanel();
     console.log('[Elderly Mode v2] Complete!');
   }
@@ -67,7 +67,7 @@
    */
   function identifyBlocks(root) {
     const blocks = [];
-    
+
     // 1. Explicit form blocks
     root.querySelectorAll('form').forEach(form => {
       blocks.push({
@@ -82,7 +82,7 @@
         }
       });
     });
-    
+
     // 2. Search components (not in forms)
     const searchBoxes = findSearchComponents(root);
     searchBoxes.forEach(box => {
@@ -95,7 +95,7 @@
         });
       }
     });
-    
+
     // 3. Navigation blocks
     root.querySelectorAll('nav, [role="navigation"], header nav').forEach(nav => {
       blocks.push({
@@ -105,7 +105,7 @@
         isAtomic: true
       });
     });
-    
+
     // 4. Sidebar blocks
     root.querySelectorAll('aside, .sidebar, [class*="sidebar"]').forEach(sidebar => {
       blocks.push({
@@ -115,7 +115,7 @@
         isAtomic: true
       });
     });
-    
+
     // 5. Content blocks
     root.querySelectorAll('article, main, [role="main"], .content, .post').forEach(content => {
       blocks.push({
@@ -125,7 +125,7 @@
         isAtomic: false // Can contain nested blocks
       });
     });
-    
+
     // 6. Action button groups
     const buttonGroups = findButtonGroups(root);
     buttonGroups.forEach(group => {
@@ -136,7 +136,7 @@
         isAtomic: true
       });
     });
-    
+
     // 7. Ad blocks
     const ads = findAds(root);
     ads.forEach(ad => {
@@ -147,7 +147,7 @@
         isAtomic: true
       });
     });
-    
+
     return blocks;
   }
 
@@ -160,7 +160,7 @@
       'input[type="search"], input[name*="search" i], input[placeholder*="search" i], ' +
       'input[id*="search" i], input[aria-label*="search" i]'
     );
-    
+
     searchInputs.forEach(input => {
       // Find the containing component (usually a div/form)
       let container = input.closest('.search, [class*="search"], [id*="search"]');
@@ -172,12 +172,12 @@
           container = parent;
         }
       }
-      
+
       if (container && !components.includes(container)) {
         components.push(container);
       }
     });
-    
+
     return components;
   }
 
@@ -187,14 +187,14 @@
   function findButtonGroups(root) {
     const groups = [];
     const containers = root.querySelectorAll('[class*="button"], [class*="action"], .controls');
-    
+
     containers.forEach(container => {
       const buttons = container.querySelectorAll('button, a.button, [role="button"]');
       if (buttons.length >= 2) {
         groups.push(container);
       }
     });
-    
+
     return groups;
   }
 
@@ -207,16 +207,16 @@
       '.banner', '[class*="sponsored"]', '[data-ad]',
       'ins.adsbygoogle', '.ad', '#ad'
     ];
-    
+
     const ads = [];
     selectors.forEach(selector => {
       try {
         root.querySelectorAll(selector).forEach(el => {
           if (!ads.includes(el)) ads.push(el);
         });
-      } catch (e) {}
+      } catch (e) { }
     });
-    
+
     return ads;
   }
 
@@ -255,7 +255,7 @@
       removeZone: [],    // Remove from page
       keepInPlace: []    // Keep in original position
     };
-    
+
     blocks.forEach(block => {
       switch (block.type) {
         case BlockType.FORM:
@@ -267,19 +267,19 @@
             classified.keepInPlace.push(block);
           }
           break;
-          
+
         case BlockType.SEARCH:
           classified.actionZone.push(block);
           break;
-          
+
         case BlockType.ACTION:
           classified.actionZone.push(block);
           break;
-          
+
         case BlockType.CONTENT:
           classified.contentZone.push(block);
           break;
-          
+
         case BlockType.NAVIGATION:
           // Navigation can be simplified or moved to action zone
           if (shouldSimplifyNav(block.element)) {
@@ -288,21 +288,21 @@
             classified.keepInPlace.push(block);
           }
           break;
-          
+
         case BlockType.SIDEBAR:
           // Most sidebars are clutter
           classified.removeZone.push(block);
           break;
-          
+
         case BlockType.AD:
           classified.removeZone.push(block);
           break;
-          
+
         default:
           classified.keepInPlace.push(block);
       }
     });
-    
+
     return classified;
   }
 
@@ -311,26 +311,26 @@
    */
   function decideLayoutStrategy(classified) {
     const { contentZone, actionZone } = classified;
-    
+
     // If page is mostly a single form (login page), don't split
     const totalForms = document.querySelectorAll('form').length;
     const totalContent = document.querySelectorAll('article, main, .content').length;
-    
+
     if (totalForms >= 1 && totalContent === 0) {
       // Likely a login/signup page - just enlarge
       return 'enlarge-only';
     }
-    
+
     // If we have both content and actions, split
     if (contentZone.length > 0 && actionZone.length > 0) {
       return 'split';
     }
-    
+
     // If mostly content with few actions, split
     if (contentZone.length > actionZone.length) {
       return 'split';
     }
-    
+
     // Default: just enlarge
     return 'enlarge-only';
   }
@@ -340,30 +340,30 @@
    */
   function applySplitLayout(classified) {
     console.log('[Elderly Mode v2] Applying split layout...');
-    
+
     const container = document.createElement('div');
     container.className = 'elderly-split-container';
-    
+
     const contentArea = document.createElement('div');
     contentArea.className = 'elderly-content-area';
-    
+
     const actionArea = document.createElement('div');
     actionArea.className = 'elderly-action-area';
-    
+
     const actionTitle = document.createElement('h2');
     actionTitle.textContent = 'Actions & Controls';
     actionArea.appendChild(actionTitle);
-    
+
     // Remove ads and sidebars
     classified.removeZone.forEach(block => {
       block.element.style.display = 'none';
     });
-    
+
     // Move action blocks to right panel
     classified.actionZone.forEach(block => {
       const wrapper = document.createElement('div');
       wrapper.className = 'elderly-action-block';
-      
+
       // Add a descriptive title
       const title = getBlockTitle(block);
       if (title) {
@@ -371,20 +371,20 @@
         titleEl.textContent = title;
         wrapper.appendChild(titleEl);
       }
-      
+
       // Clone the entire block (preserve structure)
       const clone = block.element.cloneNode(true);
-      
+
       // Sync form values
       syncFormElements(block.element, clone);
-      
+
       wrapper.appendChild(clone);
       actionArea.appendChild(wrapper);
-      
+
       // Hide original
       block.element.style.display = 'none';
     });
-    
+
     // If no actions, show message
     if (classified.actionZone.length === 0) {
       const noActions = document.createElement('p');
@@ -392,16 +392,16 @@
       noActions.style.color = '#666';
       actionArea.appendChild(noActions);
     }
-    
+
     // Keep content blocks in left panel
     const bodyClone = document.body.cloneNode(true);
-    
+
     // Remove hidden elements from clone
     bodyClone.querySelectorAll('[style*="display: none"]').forEach(el => el.remove());
     bodyClone.querySelectorAll('script, style').forEach(el => el.remove());
-    
+
     contentArea.appendChild(bodyClone);
-    
+
     // Build new layout
     document.body.innerHTML = '';
     container.appendChild(contentArea);
@@ -415,11 +415,11 @@
   function applyEnlargeOnly() {
     console.log('[Elderly Mode v2] Applying enlarge-only mode...');
     document.documentElement.classList.add('elderly-mode-active');
-    
+
     // Remove ads
     const ads = findAds(document.body);
     ads.forEach(ad => ad.style.display = 'none');
-    
+
     // Remove sidebars
     document.querySelectorAll('aside, .sidebar').forEach(el => {
       el.style.display = 'none';
@@ -447,37 +447,59 @@
   function syncFormElements(original, clone) {
     const originalInputs = original.querySelectorAll('input, select, textarea');
     const cloneInputs = clone.querySelectorAll('input, select, textarea');
-    
+
     originalInputs.forEach((origInput, index) => {
       const cloneInput = cloneInputs[index];
       if (!cloneInput) return;
-      
+
       // Sync value changes
       cloneInput.addEventListener('input', () => {
         origInput.value = cloneInput.value;
         origInput.dispatchEvent(new Event('input', { bubbles: true }));
       });
-      
+
       cloneInput.addEventListener('change', () => {
         origInput.value = cloneInput.value;
         origInput.checked = cloneInput.checked;
         origInput.dispatchEvent(new Event('change', { bubbles: true }));
       });
+
+      // Handle Enter key for non-form inputs
+      cloneInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !cloneInput.closest('form')) {
+          e.preventDefault();
+          const btn = clone.querySelector('button, input[type="submit"]');
+          if (btn) btn.click();
+        }
+      });
     });
-    
+
     // Sync button clicks
     const originalButtons = original.querySelectorAll('button, input[type="submit"]');
     const cloneButtons = clone.querySelectorAll('button, input[type="submit"]');
-    
+
     originalButtons.forEach((origButton, index) => {
       const cloneButton = cloneButtons[index];
       if (!cloneButton) return;
-      
+
       cloneButton.addEventListener('click', (e) => {
         e.preventDefault();
         origButton.click();
       });
     });
+
+    // Handle form submission
+    const cloneForm = clone.tagName === 'FORM' ? clone : clone.querySelector('form');
+    if (cloneForm) {
+      cloneForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const origForm = original.tagName === 'FORM' ? original : original.querySelector('form');
+        if (origForm) {
+          if (origForm.requestSubmit) origForm.requestSubmit();
+          else origForm.submit();
+        }
+      });
+    }
   }
 
   /**
@@ -555,6 +577,25 @@
         margin-top: 0 !important;
         margin-bottom: 15px !important;
         color: #0066CC !important;
+      }
+      /* Navigation fixes */
+      .elderly-action-block nav,
+      .elderly-action-block ul,
+      .elderly-action-block ol {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+      }
+      .elderly-action-block li {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .elderly-action-block a {
+        display: block !important;
+        width: 100% !important;
+        text-align: left !important;
       }
       .elderly-control-panel {
         position: fixed !important;
