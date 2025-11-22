@@ -69,7 +69,8 @@
     const blocks = [];
 
     // 1. Explicit and Implicit form blocks
-    const forms = [...root.querySelectorAll('form'), ...findImplicitForms(root)];
+    const forms = [...root.querySelectorAll('form'), ...findImplicitForms(root)]
+      .filter(form => isVisible(form));
     forms.forEach(form => {
       blocks.push({
         element: form,
@@ -99,6 +100,7 @@
 
     // 3. Navigation blocks
     root.querySelectorAll('nav, [role="navigation"], header nav').forEach(nav => {
+      if (!isVisible(nav)) return;
       blocks.push({
         element: nav,
         type: BlockType.NAVIGATION,
@@ -109,6 +111,7 @@
 
     // 4. Sidebar blocks
     root.querySelectorAll('aside, .sidebar, [class*="sidebar"]').forEach(sidebar => {
+      if (!isVisible(sidebar)) return;
       blocks.push({
         element: sidebar,
         type: BlockType.SIDEBAR,
@@ -119,6 +122,7 @@
 
     // 5. Content blocks
     root.querySelectorAll('article, main, [role="main"], .content, .post').forEach(content => {
+      if (!isVisible(content)) return;
       blocks.push({
         element: content,
         type: BlockType.CONTENT,
@@ -163,6 +167,7 @@
     );
 
     searchInputs.forEach(input => {
+      if (!isVisible(input)) return;
       // Find the containing component (usually a div/form)
       let container = input.closest('.search, [class*="search"], [id*="search"]');
       if (!container) {
@@ -190,6 +195,7 @@
     const containers = root.querySelectorAll('[class*="button"], [class*="action"], .controls');
 
     containers.forEach(container => {
+      if (!isVisible(container)) return;
       const buttons = container.querySelectorAll('button, a.button, [role="button"]');
       if (buttons.length >= 2) {
         groups.push(container);
@@ -213,6 +219,7 @@
     selectors.forEach(selector => {
       try {
         root.querySelectorAll(selector).forEach(el => {
+          if (!isVisible(el)) return;
           if (!ads.includes(el)) ads.push(el);
         });
       } catch (e) { }
@@ -625,6 +632,9 @@
         display: block !important;
         width: 100% !important;
         text-align: left !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
       }
       .elderly-control-panel {
         position: fixed !important;
@@ -645,6 +655,14 @@
       }
     `;
     document.head.appendChild(style);
+  }
+
+  /**
+   * Check if an element is visible
+   */
+  function isVisible(el) {
+    if (!el) return false;
+    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
   }
 
   /**
