@@ -1,0 +1,32 @@
+{
+  "layout": "split",
+  "enlargeText": true,
+  "simplifyNav": true,
+  "removeAds": true,
+  "highContrast": false,
+  "removeSelectors": [
+    ".ad",
+    ".ad-wrapper",
+    ".banner-ad",
+    "[class*='advertisement']",
+    ".video-ad",
+    "#header-nav-container",
+    ".related-content",
+    ".zn-body__rail",
+    "[data-ad-type]",
+    ".el__embedded--standard",
+    ".ad-slot-wrap"
+  ],
+  "keepSelectors": [
+    "article",
+    ".headline",
+    ".paragraph",
+    "h1",
+    "h2",
+    "img",
+    "video",
+    "button",
+    "input",
+    "select"
+  ]
+}

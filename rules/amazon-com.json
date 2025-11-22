@@ -1,0 +1,39 @@
+{
+  "layout": "split",
+  "enlargeText": true,
+  "simplifyNav": true,
+  "removeAds": true,
+  "highContrast": false,
+  "removeSelectors": [
+    "#nav-ad-container",
+    ".a-carousel-card[data-a-card-type='ad']",
+    "[data-component-type='sp-sponsored-result']",
+    ".AdHolder",
+    ".sp_desktop_sponsored_label",
+    "#percolate-ui-ilm_div",
+    "#nav-flyout-searchAjax",
+    ".celwidget[cel_widget_id*='ad']",
+    "#rhf",
+    "#dp-ads-center-promo",
+    "#sims-consolidated-1",
+    "#sims-consolidated-2"
+  ],
+  "enlargeButtons": [
+    "#add-to-cart-button",
+    "#buy-now-button",
+    ".a-button-primary",
+    "#nav-cart",
+    "#nav-search-submit-button"
+  ],
+  "keepSelectors": [
+    "input",
+    "button",
+    "select",
+    "#productTitle",
+    "#priceblock_ourprice",
+    "#priceblock_dealprice",
+    ".product-image",
+    "#feature-bullets",
+    "#productDescription"
+  ]
+}

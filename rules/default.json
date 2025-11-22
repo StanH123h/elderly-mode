@@ -1,0 +1,33 @@
+{
+  "layout": "split",
+  "enlargeText": true,
+  "simplifyNav": true,
+  "removeAds": true,
+  "highContrast": false,
+  "removeSelectors": [
+    "[class*='ad-']",
+    "[id*='ad-']",
+    "[class*='advertisement']",
+    "[class*='popup']",
+    "[class*='modal']",
+    "[class*='banner']",
+    ".sidebar",
+    "#sidebar"
+  ],
+  "keepSelectors": [
+    "input",
+    "button",
+    "select",
+    "textarea",
+    "form",
+    "a",
+    "img",
+    "video",
+    "h1",
+    "h2",
+    "h3",
+    "p",
+    "article",
+    "main"
+  ]
+}
