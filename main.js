@@ -68,8 +68,9 @@
   function identifyBlocks(root) {
     const blocks = [];
 
-    // 1. Explicit form blocks
-    root.querySelectorAll('form').forEach(form => {
+    // 1. Explicit and Implicit form blocks
+    const forms = [...root.querySelectorAll('form'), ...findImplicitForms(root)];
+    forms.forEach(form => {
       blocks.push({
         element: form,
         type: BlockType.FORM,
@@ -221,6 +222,34 @@
   }
 
   /**
+   * Find implicit forms (containers with inputs but no form tag)
+   */
+  function findImplicitForms(root) {
+    const forms = [];
+    const selectors = [
+      'div[class*="form-"]', 'div[class*="-form"]', 'div[class="form"]',
+      'section[class*="form-"]', 'section[class*="-form"]', 'section[class="form"]',
+      'div[id*="form-"]', 'div[id*="-form"]', 'div[id="form"]',
+      'section[id*="form-"]', 'section[id*="-form"]', 'section[id="form"]'
+    ];
+
+    const candidates = root.querySelectorAll(selectors.join(', '));
+
+    candidates.forEach(el => {
+      if (el.closest('form')) return;
+      if (el.querySelectorAll('input, select, textarea').length === 0) return;
+
+      // Prefer outer container
+      const isContained = Array.from(candidates).some(other => other !== el && other.contains(el));
+      if (!isContained) {
+        forms.push(el);
+      }
+    });
+
+    return forms;
+  }
+
+  /**
    * Check if element contains login fields
    */
   function hasLoginFields(form) {
@@ -341,12 +370,21 @@
   function applySplitLayout(classified) {
     console.log('[Elderly Mode v2] Applying split layout...');
 
+    // 1. Create the main container
     const container = document.createElement('div');
     container.className = 'elderly-split-container';
 
+    // 2. Create the Left Pane (Content Area)
+    // We want to move EVERYTHING currently in the body into this pane
     const contentArea = document.createElement('div');
     contentArea.className = 'elderly-content-area';
 
+    // Move all existing body children into contentArea
+    while (document.body.firstChild) {
+      contentArea.appendChild(document.body.firstChild);
+    }
+
+    // 3. Create the Right Pane (Action Area)
     const actionArea = document.createElement('div');
     actionArea.className = 'elderly-action-area';
 
@@ -354,12 +392,8 @@
     actionTitle.textContent = 'Actions & Controls';
     actionArea.appendChild(actionTitle);
 
-    // Remove ads and sidebars
-    classified.removeZone.forEach(block => {
-      block.element.style.display = 'none';
-    });
-
-    // Move action blocks to right panel
+    // 4. Populate Right Pane with extracted controls
+    // We use the classified blocks to find what to clone
     classified.actionZone.forEach(block => {
       const wrapper = document.createElement('div');
       wrapper.className = 'elderly-action-block';
@@ -372,17 +406,17 @@
         wrapper.appendChild(titleEl);
       }
 
-      // Clone the entire block (preserve structure)
+      // Clone the block for the right pane
       const clone = block.element.cloneNode(true);
 
-      // Sync form values
+      // Ensure the clone is visible even if the original was hidden (though we aren't hiding originals anymore)
+      clone.style.display = '';
+
+      // Sync interactions between Clone (Right) and Original (Left)
       syncFormElements(block.element, clone);
 
       wrapper.appendChild(clone);
       actionArea.appendChild(wrapper);
-
-      // Hide original
-      block.element.style.display = 'none';
     });
 
     // If no actions, show message
@@ -393,17 +427,7 @@
       actionArea.appendChild(noActions);
     }
 
-    // Keep content blocks in left panel
-    const bodyClone = document.body.cloneNode(true);
-
-    // Remove hidden elements from clone
-    bodyClone.querySelectorAll('[style*="display: none"]').forEach(el => el.remove());
-    bodyClone.querySelectorAll('script, style').forEach(el => el.remove());
-
-    contentArea.appendChild(bodyClone);
-
-    // Build new layout
-    document.body.innerHTML = '';
+    // 5. Assemble the final layout
     container.appendChild(contentArea);
     container.appendChild(actionArea);
     document.body.appendChild(container);
@@ -537,28 +561,33 @@
       }
       .elderly-split-container {
         display: flex !important;
-        gap: 20px !important;
-        padding: 20px !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
         background: #FFF !important;
-        min-height: 100vh !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 999990 !important;
       }
       .elderly-content-area {
         flex: 7 !important;
-        padding: 30px !important;
+        padding: 0 !important; /* Remove padding to keep original site look */
         background: #FFF !important;
-        border: 2px solid #E0E0E0 !important;
-        border-radius: 8px !important;
+        border-right: 2px solid #E0E0E0 !important;
+        overflow-y: auto !important; /* Allow scrolling independent of right pane */
+        height: 100vh !important;
       }
       .elderly-action-area {
         flex: 3 !important;
         padding: 30px !important;
         background: #F5F5F5 !important;
-        border: 2px solid #E0E0E0 !important;
-        border-radius: 8px !important;
-        position: sticky !important;
-        top: 20px !important;
-        max-height: calc(100vh - 40px) !important;
+        border-left: 2px solid #E0E0E0 !important;
+        height: 100vh !important;
         overflow-y: auto !important;
+        box-shadow: -5px 0 15px rgba(0,0,0,0.05) !important;
       }
       .elderly-action-area h2 {
         font-size: 24px !important;

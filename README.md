@@ -5,8 +5,8 @@
 
 By simply clicking a bookmarklet in their browser, our custom script (`main.js`) instantly injects into the current webpage and transforms the interface into a clean, high-contrast **Split-Screen Mode**:
 
-* **The Left Pane (The "View" Zone):** This area extracts the core HTML structure—articles, product descriptions, and images. It is strictly for consumption, offering a clutter-free reading experience similar to a "Reader View," but for the entire page structure.
-* **The Right Pane (The "Action" Zone):** This area isolates the interactive JavaScript behaviors and control elements. Here, the user finds simplified buttons for critical actions like **Search**, **Login**, **Submit**, or **Buy**.
+* **The Left Pane (The "View" Zone):** This area preserves the **entire original website**, ensuring you don't miss any context, layout, or visual details. It's the full browsing experience you're used to.
+* **The Right Pane (The "Action" Zone):** This area isolates the interactive JavaScript behaviors and control elements. Here, the user finds simplified buttons for critical actions like **Search**, **Login**, **Submit**, or **Buy**. Interactions here are automatically synchronized with the main site on the left.
 
 **ElderSurf** effectively untangles the "Structure" from the "Behavior." It is designed to work on the high-traffic sites seniors visit most, such as:
 * **News Portals** (reading articles on the left, searching archives on the right).
