@@ -12,7 +12,38 @@
     lineHeight: '1.8',
   };
 
-  if (window.elderlyModeActive) return;
+  if (window.elderlyModeActive) {
+    // If already active, we might be on a new "page" in an SPA, or user wants to reset.
+    // Let's clean up and re-run.
+    const existingContainer = document.querySelector('.elderly-split-container');
+    if (existingContainer) {
+      // Restore original body content if possible? 
+      // Actually, our split layout moved everything into contentArea. 
+      // We should move it back to body to be safe before re-running, 
+      // OR just reload the page to be safe.
+      // But for SPA, reloading might lose state.
+      // Let's just alert for now, or try to handle it.
+      // Simplest for "No reaction" is to just reload if they click it again?
+      // User said "jump to new page... no reaction". 
+      // If it's a real new page, window.elderlyModeActive is false.
+      // If it's an SPA, it's true.
+      // Let's try to re-initialize.
+      console.log('[Elderly Mode] Re-initializing...');
+      document.documentElement.classList.remove('elderly-mode-active');
+      if (existingContainer) {
+        // Move content back to body
+        const contentArea = existingContainer.querySelector('.elderly-content-area');
+        if (contentArea) {
+          while (contentArea.firstChild) {
+            document.body.appendChild(contentArea.firstChild);
+          }
+        }
+        existingContainer.remove();
+        const panel = document.querySelector('.elderly-control-panel');
+        if (panel) panel.remove();
+      }
+    }
+  }
   window.elderlyModeActive = true;
 
   /**
@@ -23,7 +54,6 @@
     SEARCH: 'search',       // Search bars
     ACTION: 'action',       // Buttons, controls
     CONTENT: 'content',     // Articles, text
-    NAVIGATION: 'nav',      // Nav menus
     SIDEBAR: 'sidebar',     // Sidebars
     AD: 'ad',              // Advertisements
     MIXED: 'mixed',        // Content with embedded actions
@@ -42,8 +72,12 @@
     const blocks = identifyBlocks(document.body);
     console.log('[Elderly Mode v2] Identified blocks:', blocks);
 
+    // Step 1.5: Deduplicate blocks (fix double search bars)
+    const uniqueBlocks = deduplicateBlocks(blocks);
+    console.log('[Elderly Mode v2] Unique blocks:', uniqueBlocks);
+
     // Step 2: Classify each block
-    const classified = classifyBlocks(blocks);
+    const classified = classifyBlocks(uniqueBlocks);
     console.log('[Elderly Mode v2] Classified blocks:', classified);
 
     // Step 3: Decide layout strategy
@@ -98,16 +132,9 @@
       }
     });
 
-    // 3. Navigation blocks
-    root.querySelectorAll('nav, [role="navigation"], header nav').forEach(nav => {
-      if (!isVisible(nav)) return;
-      blocks.push({
-        element: nav,
-        type: BlockType.NAVIGATION,
-        priority: 80,
-        isAtomic: true
-      });
-    });
+    // 3. Navigation blocks - REMOVED per user request
+    // We no longer extract navigation.
+
 
     // 4. Sidebar blocks
     root.querySelectorAll('aside, .sidebar, [class*="sidebar"]').forEach(sidebar => {
@@ -316,14 +343,8 @@
           classified.contentZone.push(block);
           break;
 
-        case BlockType.NAVIGATION:
-          // Navigation can be simplified or moved to action zone
-          if (shouldSimplifyNav(block.element)) {
-            classified.actionZone.push(block);
-          } else {
-            classified.keepInPlace.push(block);
-          }
-          break;
+        // Navigation is now ignored/kept in place
+        // case BlockType.NAVIGATION: ...
 
         case BlockType.SIDEBAR:
           // Most sidebars are clutter
@@ -357,18 +378,54 @@
       return 'enlarge-only';
     }
 
-    // If we have both content and actions, split
-    if (contentZone.length > 0 && actionZone.length > 0) {
+    // If we have ANY actions, we should split to show them
+    if (actionZone.length > 0) {
       return 'split';
     }
 
-    // If mostly content with few actions, split
-    if (contentZone.length > actionZone.length) {
-      return 'split';
+    // If no actions but we have content, maybe just enlarge?
+    // But if the user clicked the button, they probably want the panel.
+    // Let's default to split if we found ANYTHING interesting, otherwise enlarge.
+    if (contentZone.length > 0) {
+      return 'enlarge-only';
     }
 
-    // Default: just enlarge
     return 'enlarge-only';
+  }
+
+  /**
+   * Deduplicate blocks (e.g. multiple search bars)
+   */
+  function deduplicateBlocks(blocks) {
+    const unique = [];
+    const seenTypes = new Set();
+
+    // Sort by priority first?
+    // Actually, we just want to avoid two "SEARCH" blocks if they look similar.
+    // For now, let's just keep the FIRST "SEARCH" block and ignore others if they seem redundant.
+
+    let hasSearch = false;
+
+    blocks.forEach(block => {
+      if (block.type === BlockType.SEARCH) {
+        if (hasSearch) return; // Only allow ONE search block for now (usually the main header one)
+        hasSearch = true;
+        unique.push(block);
+      } else if (block.type === BlockType.FORM) {
+        // If it's a search form, check if we already have a search
+        if (block.metadata.hasSearch) {
+          if (hasSearch) return;
+          hasSearch = true;
+          unique.push(block);
+        } else {
+          unique.push(block);
+        }
+      } else {
+        unique.push(block);
+      }
+    });
+
+    return unique;
   }
 
   /**
@@ -468,7 +525,6 @@
     }
     if (block.type === BlockType.SEARCH) return '🔍 Search';
     if (block.type === BlockType.ACTION) return '⚙️ Actions';
-    if (block.type === BlockType.NAVIGATION) return '🧭 Navigation';
     return null;
   }
 
