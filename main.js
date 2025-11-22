@@ -1,415 +1,532 @@
 /**
- * Elderly Mode - Main Script
- * Makes websites more accessible for elderly users
- * https://stanh123h.github.io/elderly-mode/
+ * Elderly Mode - Semantic Block Recognition Algorithm
+ * Version 2.0 - Smart block division instead of element matching
  */
 
 (function() {
   'use strict';
 
-  // Configuration
   const CONFIG = {
     baseURL: 'https://stanh123h.github.io/elderly-mode',
     fontSize: '20px',
     lineHeight: '1.8',
-    minTouchTarget: '48px',
-    splitRatio: '70/30', // Left content / Right actions
   };
 
-  // Track if elderly mode is already active
-  if (window.elderlyModeActive) {
-    console.log('[Elderly Mode] Already active, skipping...');
-    return;
-  }
+  if (window.elderlyModeActive) return;
   window.elderlyModeActive = true;
 
   /**
-   * Main initialization function
-   * 改进版: 添加错误处理和降级机制
+   * Block types for classification
    */
-  async function init() {
-    try {
-      console.log('[Elderly Mode] Initializing...');
-
-      // Get current domain
-      const domain = getDomain();
-      console.log('[Elderly Mode] Domain:', domain);
-
-      // Load rules for this domain
-      const rules = await loadRules(domain);
-      console.log('[Elderly Mode] Rules loaded:', rules);
-
-      // Apply optimizations with error handling
-      try {
-        applyOptimizations(rules);
-      } catch (error) {
-        console.error('[Elderly Mode] Error applying optimizations:', error);
-        // 降级: 只应用基础样式
-        injectBaseStyles();
-        enlargeText();
-        addControlPanel();
-        showErrorNotification('部分功能加载失败,已启用基础模式');
-      }
-
-      // Add control panel
-      if (!document.querySelector('.elderly-control-panel')) {
-        addControlPanel();
-      }
-
-      console.log('[Elderly Mode] Initialization complete!');
-
-    } catch (error) {
-      console.error('[Elderly Mode] Fatal initialization error:', error);
-      // 完全降级: 显示错误信息
-      showErrorNotification('Elderly Mode 启动失败,请刷新页面重试');
-    }
-  }
-
-  /**
-   * 显示错误通知
-   */
-  function showErrorNotification(message) {
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #ff5252;
-      color: white;
-      padding: 15px 30px;
-      border-radius: 8px;
-      font-size: 18px;
-      z-index: 9999999;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    `;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-
-    // 5秒后自动消失
-    setTimeout(() => {
-      notification.style.opacity = '0';
-      notification.style.transition = 'opacity 0.5s';
-      setTimeout(() => notification.remove(), 500);
-    }, 5000);
-  }
-
-  /**
-   * Get clean domain name
-   */
-  function getDomain() {
-    return window.location.hostname
-      .replace('www.', '')
-      .replace(/\./g, '-'); // amazon.com -> amazon-com
-  }
-
-  /**
-   * 内置规则配置 - 减少网络依赖
-   */
-  const BUILT_IN_RULES = {
-    'amazon-com': {
-      layout: 'split',
-      enlargeText: true,
-      simplifyNav: true,
-      removeAds: true,
-      highContrast: false,
-      removeSelectors: [
-        // 导航相关
-        '#nav-ad-container',
-        '#nav-flyout-searchAjax',
-        '#nav-subnav',
-        '#nav-progressive-subnav',
-
-        // 广告和推广
-        '.a-carousel-card[data-a-card-type="ad"]',
-        '[data-component-type="sp-sponsored-result"]',
-        '[class*="sponsored"]',
-        '[class*="Sponsored"]',
-        '[id*="sponsored"]',
-        '.AdHolder',
-        '.sp_desktop_sponsored_label',
-        '#percolate-ui-ilm_div',
-        '.celwidget[cel_widget_id*="ad"]',
-        '#rhf',
-        '#dp-ads-center-promo',
-        '#sims-consolidated-1',
-        '#sims-consolidated-2',
-        '#desktop-banner',
-        '#mobile-banner',
-
-        // Prime会员推广
-        '#nav-flyout-prime',
-        '#nav-flyout-amazonprime',
-
-        // Hero视频和轮播图
-        '#desktop-tall-hero-video_desktop-gateway-atf_0',
-        '._desktop-tall-hero-video_style_lazy-video-wrapper__WM56t',
-        '[class*="hero-video"]',
-        '[class*="tall-hero"]',
-        '.gw-desktop-herotator',
-        '#gw-desktop-herotator',
-
-        // Rufus AI助手
-        '[id*="rufus"]',
-        '[class*="rufus"]',
-
-        // 其他干扰元素
-        '.nav-sprite-v1',
-        '#nav-sprite-v1',
-        '.nav-timeline-prime-icon',
-        '[data-cel-widget*="marketing"]',
-        '[class*="marketing"]',
-        '[class*="promo"]',
-        '.a-popover',
-        '.a-declarative[data-action*="popup"]'
-      ],
-      keepSelectors: [
-        // 基础表单元素
-        'input', 'button', 'select', 'textarea',
-
-        // 搜索和导航
-        '#twotabsearchtextbox',
-        '#nav-search-submit-button',
-        '#nav-cart',
-        '#nav-cart-count',
-        '#nav-orders',
-        '#nav-link-accountList',
-        '#nav-global-location-popover-link',
-        '#searchDropdownBox',
-
-        // 商品详情
-        '#productTitle',
-        '#priceblock_ourprice',
-        '#priceblock_dealprice',
-        '.product-image',
-        '#feature-bullets',
-        '#productDescription',
-        '.a-price',
-        '.a-button-primary',
-        '#add-to-cart-button',
-        '#buy-now-button',
-
-        // 内容结构
-        'h1', 'h2', 'h3',
-        'article', 'main',
-        '.a-link-normal',
-        '.a-cardui',
-        '[data-component-type="s-search-result"]',
-        '.s-result-item',
-        '.gw-card-layout'
-      ]
-    },
-    'cnn-com': {
-      layout: 'split',
-      enlargeText: true,
-      simplifyNav: true,
-      removeAds: true,
-      highContrast: false,
-      removeSelectors: [
-        '.ad', '.ad-wrapper', '.banner-ad', '[class*="advertisement"]',
-        '.video-ad', '#header-nav-container', '.related-content',
-        '.zn-body__rail', '[data-ad-type]', '.el__embedded--standard', '.ad-slot-wrap'
-      ],
-      keepSelectors: [
-        'article', '.headline', '.paragraph', 'h1', 'h2',
-        'img', 'video', 'button', 'input', 'select'
-      ]
-    }
+  const BlockType = {
+    FORM: 'form',           // Login, signup, contact forms
+    SEARCH: 'search',       // Search bars
+    ACTION: 'action',       // Buttons, controls
+    CONTENT: 'content',     // Articles, text
+    NAVIGATION: 'nav',      // Nav menus
+    SIDEBAR: 'sidebar',     // Sidebars
+    AD: 'ad',              // Advertisements
+    MIXED: 'mixed',        // Content with embedded actions
+    UNKNOWN: 'unknown'
   };
 
   /**
-   * Load rules for the current domain
-   * 改进版: 优先使用内置规则,减少网络请求
+   * Main initialization
    */
-  async function loadRules(domain) {
-    // 1. 先检查内置规则
-    if (BUILT_IN_RULES[domain]) {
-      console.log(`[Elderly Mode] Using built-in rules for ${domain}`);
-      return BUILT_IN_RULES[domain];
-    }
-
-    // 2. 尝试从本地存储加载缓存的规则
-    try {
-      const cached = localStorage.getItem(`elderly-rules-${domain}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const cacheTime = parsed.timestamp || 0;
-        const now = Date.now();
-        // 缓存7天有效
-        if (now - cacheTime < 7 * 24 * 60 * 60 * 1000) {
-          console.log(`[Elderly Mode] Using cached rules for ${domain}`);
-          return parsed.rules;
-        }
-      }
-    } catch (error) {
-      console.warn('[Elderly Mode] Failed to load cached rules:', error);
-    }
-
-    // 3. 尝试从远程加载(仅作为fallback)
-    try {
-      const response = await fetch(`${CONFIG.baseURL}/rules/${domain}.json`);
-      if (response.ok) {
-        const rules = await response.json();
-        // 缓存到本地存储
-        try {
-          localStorage.setItem(`elderly-rules-${domain}`, JSON.stringify({
-            rules: rules,
-            timestamp: Date.now()
-          }));
-        } catch (e) {
-          console.warn('[Elderly Mode] Failed to cache rules:', e);
-        }
-        console.log(`[Elderly Mode] Loaded remote rules for ${domain}`);
-        return rules;
-      }
-    } catch (error) {
-      console.log('[Elderly Mode] No remote rules available, using defaults');
-    }
-
-    // 4. Fallback到默认规则
-    console.log('[Elderly Mode] Using default rules');
-    return getDefaultRules();
-  }
-
-  /**
-   * Default optimization rules
-   */
-  function getDefaultRules() {
-    return {
-      layout: 'split', // 'split' or 'normal'
-      enlargeText: true,
-      simplifyNav: true,
-      removeAds: true,
-      highContrast: false,
-      removeSelectors: [
-        // Common ad/clutter selectors
-        '[class*="ad-"]',
-        '[id*="ad-"]',
-        '[class*="advertisement"]',
-        '.sidebar',
-        '[class*="popup"]',
-        '[class*="modal"]'
-      ],
-      keepSelectors: [
-        // Essential elements to preserve
-        'input',
-        'button',
-        'select',
-        'textarea',
-        'form',
-        'a',
-        'img',
-        'video',
-        'h1', 'h2', 'h3',
-        'p',
-        'article',
-        'main'
-      ]
-    };
-  }
-
-  /**
-   * Apply all optimizations based on rules
-   */
-  function applyOptimizations(rules) {
-    // Inject base styles
+  async function init() {
+    console.log('[Elderly Mode v2] Initializing semantic block recognition...');
+    
     injectBaseStyles();
     
-    // Remove clutter
-    if (rules.removeAds) {
-      removeClutter(rules.removeSelectors);
+    // Step 1: Identify all blocks in the page
+    const blocks = identifyBlocks(document.body);
+    console.log('[Elderly Mode v2] Identified blocks:', blocks);
+    
+    // Step 2: Classify each block
+    const classified = classifyBlocks(blocks);
+    console.log('[Elderly Mode v2] Classified blocks:', classified);
+    
+    // Step 3: Decide layout strategy
+    const strategy = decideLayoutStrategy(classified);
+    console.log('[Elderly Mode v2] Layout strategy:', strategy);
+    
+    // Step 4: Apply layout
+    if (strategy === 'split') {
+      applySplitLayout(classified);
+    } else if (strategy === 'enlarge-only') {
+      applyEnlargeOnly();
     }
     
-    // Enlarge text
-    if (rules.enlargeText) {
-      enlargeText();
-    }
-    
-    // Apply split layout
-    if (rules.layout === 'split') {
-      applySplitLayout();
-    }
-    
-    // High contrast mode
-    if (rules.highContrast) {
-      applyHighContrast();
-    }
+    addControlPanel();
+    console.log('[Elderly Mode v2] Complete!');
   }
 
   /**
-   * Inject base CSS styles
+   * Identify functional blocks in the DOM
+   * Returns array of block objects with metadata
+   */
+  function identifyBlocks(root) {
+    const blocks = [];
+    
+    // 1. Explicit form blocks
+    root.querySelectorAll('form').forEach(form => {
+      blocks.push({
+        element: form,
+        type: BlockType.FORM,
+        priority: 100,
+        isAtomic: true, // Cannot be split
+        metadata: {
+          hasLogin: hasLoginFields(form),
+          hasSearch: hasSearchFields(form),
+          inputCount: form.querySelectorAll('input, select, textarea').length
+        }
+      });
+    });
+    
+    // 2. Search components (not in forms)
+    const searchBoxes = findSearchComponents(root);
+    searchBoxes.forEach(box => {
+      if (!isInsideForm(box)) {
+        blocks.push({
+          element: box,
+          type: BlockType.SEARCH,
+          priority: 90,
+          isAtomic: true
+        });
+      }
+    });
+    
+    // 3. Navigation blocks
+    root.querySelectorAll('nav, [role="navigation"], header nav').forEach(nav => {
+      blocks.push({
+        element: nav,
+        type: BlockType.NAVIGATION,
+        priority: 80,
+        isAtomic: true
+      });
+    });
+    
+    // 4. Sidebar blocks
+    root.querySelectorAll('aside, .sidebar, [class*="sidebar"]').forEach(sidebar => {
+      blocks.push({
+        element: sidebar,
+        type: BlockType.SIDEBAR,
+        priority: 20,
+        isAtomic: true
+      });
+    });
+    
+    // 5. Content blocks
+    root.querySelectorAll('article, main, [role="main"], .content, .post').forEach(content => {
+      blocks.push({
+        element: content,
+        type: BlockType.CONTENT,
+        priority: 95,
+        isAtomic: false // Can contain nested blocks
+      });
+    });
+    
+    // 6. Action button groups
+    const buttonGroups = findButtonGroups(root);
+    buttonGroups.forEach(group => {
+      blocks.push({
+        element: group,
+        type: BlockType.ACTION,
+        priority: 85,
+        isAtomic: true
+      });
+    });
+    
+    // 7. Ad blocks
+    const ads = findAds(root);
+    ads.forEach(ad => {
+      blocks.push({
+        element: ad,
+        type: BlockType.AD,
+        priority: 0,
+        isAtomic: true
+      });
+    });
+    
+    return blocks;
+  }
+
+  /**
+   * Find search components (input + button pairs)
+   */
+  function findSearchComponents(root) {
+    const components = [];
+    const searchInputs = root.querySelectorAll(
+      'input[type="search"], input[name*="search" i], input[placeholder*="search" i], ' +
+      'input[id*="search" i], input[aria-label*="search" i]'
+    );
+    
+    searchInputs.forEach(input => {
+      // Find the containing component (usually a div/form)
+      let container = input.closest('.search, [class*="search"], [id*="search"]');
+      if (!container) {
+        // Look for nearby button
+        const parent = input.parentElement;
+        const button = parent.querySelector('button, input[type="submit"]');
+        if (button) {
+          container = parent;
+        }
+      }
+      
+      if (container && !components.includes(container)) {
+        components.push(container);
+      }
+    });
+    
+    return components;
+  }
+
+  /**
+   * Find button groups (multiple buttons in close proximity)
+   */
+  function findButtonGroups(root) {
+    const groups = [];
+    const containers = root.querySelectorAll('[class*="button"], [class*="action"], .controls');
+    
+    containers.forEach(container => {
+      const buttons = container.querySelectorAll('button, a.button, [role="button"]');
+      if (buttons.length >= 2) {
+        groups.push(container);
+      }
+    });
+    
+    return groups;
+  }
+
+  /**
+   * Find advertisement elements
+   */
+  function findAds(root) {
+    const selectors = [
+      '[class*="ad-"]', '[id*="ad-"]', '[class*="advertisement"]',
+      '.banner', '[class*="sponsored"]', '[data-ad]',
+      'ins.adsbygoogle', '.ad', '#ad'
+    ];
+    
+    const ads = [];
+    selectors.forEach(selector => {
+      try {
+        root.querySelectorAll(selector).forEach(el => {
+          if (!ads.includes(el)) ads.push(el);
+        });
+      } catch (e) {}
+    });
+    
+    return ads;
+  }
+
+  /**
+   * Check if element contains login fields
+   */
+  function hasLoginFields(form) {
+    const passwordInputs = form.querySelectorAll('input[type="password"]');
+    const usernameInputs = form.querySelectorAll(
+      'input[type="text"], input[type="email"], input[name*="user" i], input[name*="email" i]'
+    );
+    return passwordInputs.length > 0 && usernameInputs.length > 0;
+  }
+
+  /**
+   * Check if element contains search fields
+   */
+  function hasSearchFields(form) {
+    return form.querySelector('input[type="search"], input[name*="search" i]') !== null;
+  }
+
+  /**
+   * Check if element is inside a form
+   */
+  function isInsideForm(element) {
+    return element.closest('form') !== null;
+  }
+
+  /**
+   * Classify blocks into destination zones
+   */
+  function classifyBlocks(blocks) {
+    const classified = {
+      contentZone: [],   // Goes to left panel
+      actionZone: [],    // Goes to right panel
+      removeZone: [],    // Remove from page
+      keepInPlace: []    // Keep in original position
+    };
+    
+    blocks.forEach(block => {
+      switch (block.type) {
+        case BlockType.FORM:
+          // Forms go to action zone unless they're the main content
+          if (block.metadata.hasLogin || block.metadata.inputCount <= 5) {
+            classified.actionZone.push(block);
+          } else {
+            // Complex form (like survey) - might be main content
+            classified.keepInPlace.push(block);
+          }
+          break;
+          
+        case BlockType.SEARCH:
+          classified.actionZone.push(block);
+          break;
+          
+        case BlockType.ACTION:
+          classified.actionZone.push(block);
+          break;
+          
+        case BlockType.CONTENT:
+          classified.contentZone.push(block);
+          break;
+          
+        case BlockType.NAVIGATION:
+          // Navigation can be simplified or moved to action zone
+          if (shouldSimplifyNav(block.element)) {
+            classified.actionZone.push(block);
+          } else {
+            classified.keepInPlace.push(block);
+          }
+          break;
+          
+        case BlockType.SIDEBAR:
+          // Most sidebars are clutter
+          classified.removeZone.push(block);
+          break;
+          
+        case BlockType.AD:
+          classified.removeZone.push(block);
+          break;
+          
+        default:
+          classified.keepInPlace.push(block);
+      }
+    });
+    
+    return classified;
+  }
+
+  /**
+   * Decide if we should use split layout or just enlarge
+   */
+  function decideLayoutStrategy(classified) {
+    const { contentZone, actionZone } = classified;
+    
+    // If page is mostly a single form (login page), don't split
+    const totalForms = document.querySelectorAll('form').length;
+    const totalContent = document.querySelectorAll('article, main, .content').length;
+    
+    if (totalForms >= 1 && totalContent === 0) {
+      // Likely a login/signup page - just enlarge
+      return 'enlarge-only';
+    }
+    
+    // If we have both content and actions, split
+    if (contentZone.length > 0 && actionZone.length > 0) {
+      return 'split';
+    }
+    
+    // If mostly content with few actions, split
+    if (contentZone.length > actionZone.length) {
+      return 'split';
+    }
+    
+    // Default: just enlarge
+    return 'enlarge-only';
+  }
+
+  /**
+   * Apply split layout with semantic blocks
+   */
+  function applySplitLayout(classified) {
+    console.log('[Elderly Mode v2] Applying split layout...');
+    
+    const container = document.createElement('div');
+    container.className = 'elderly-split-container';
+    
+    const contentArea = document.createElement('div');
+    contentArea.className = 'elderly-content-area';
+    
+    const actionArea = document.createElement('div');
+    actionArea.className = 'elderly-action-area';
+    
+    const actionTitle = document.createElement('h2');
+    actionTitle.textContent = 'Actions & Controls';
+    actionArea.appendChild(actionTitle);
+    
+    // Remove ads and sidebars
+    classified.removeZone.forEach(block => {
+      block.element.style.display = 'none';
+    });
+    
+    // Move action blocks to right panel
+    classified.actionZone.forEach(block => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'elderly-action-block';
+      
+      // Add a descriptive title
+      const title = getBlockTitle(block);
+      if (title) {
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = title;
+        wrapper.appendChild(titleEl);
+      }
+      
+      // Clone the entire block (preserve structure)
+      const clone = block.element.cloneNode(true);
+      
+      // Sync form values
+      syncFormElements(block.element, clone);
+      
+      wrapper.appendChild(clone);
+      actionArea.appendChild(wrapper);
+      
+      // Hide original
+      block.element.style.display = 'none';
+    });
+    
+    // If no actions, show message
+    if (classified.actionZone.length === 0) {
+      const noActions = document.createElement('p');
+      noActions.textContent = 'No interactive elements detected.';
+      noActions.style.color = '#666';
+      actionArea.appendChild(noActions);
+    }
+    
+    // Keep content blocks in left panel
+    const bodyClone = document.body.cloneNode(true);
+    
+    // Remove hidden elements from clone
+    bodyClone.querySelectorAll('[style*="display: none"]').forEach(el => el.remove());
+    bodyClone.querySelectorAll('script, style').forEach(el => el.remove());
+    
+    contentArea.appendChild(bodyClone);
+    
+    // Build new layout
+    document.body.innerHTML = '';
+    container.appendChild(contentArea);
+    container.appendChild(actionArea);
+    document.body.appendChild(container);
+  }
+
+  /**
+   * Just enlarge text and clean up, don't split
+   */
+  function applyEnlargeOnly() {
+    console.log('[Elderly Mode v2] Applying enlarge-only mode...');
+    document.documentElement.classList.add('elderly-mode-active');
+    
+    // Remove ads
+    const ads = findAds(document.body);
+    ads.forEach(ad => ad.style.display = 'none');
+    
+    // Remove sidebars
+    document.querySelectorAll('aside, .sidebar').forEach(el => {
+      el.style.display = 'none';
+    });
+  }
+
+  /**
+   * Get a descriptive title for a block
+   */
+  function getBlockTitle(block) {
+    if (block.type === BlockType.FORM) {
+      if (block.metadata.hasLogin) return '🔐 Login';
+      if (block.metadata.hasSearch) return '🔍 Search';
+      return '📝 Form';
+    }
+    if (block.type === BlockType.SEARCH) return '🔍 Search';
+    if (block.type === BlockType.ACTION) return '⚙️ Actions';
+    if (block.type === BlockType.NAVIGATION) return '🧭 Navigation';
+    return null;
+  }
+
+  /**
+   * Sync form elements between original and clone
+   */
+  function syncFormElements(original, clone) {
+    const originalInputs = original.querySelectorAll('input, select, textarea');
+    const cloneInputs = clone.querySelectorAll('input, select, textarea');
+    
+    originalInputs.forEach((origInput, index) => {
+      const cloneInput = cloneInputs[index];
+      if (!cloneInput) return;
+      
+      // Sync value changes
+      cloneInput.addEventListener('input', () => {
+        origInput.value = cloneInput.value;
+        origInput.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      
+      cloneInput.addEventListener('change', () => {
+        origInput.value = cloneInput.value;
+        origInput.checked = cloneInput.checked;
+        origInput.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+    
+    // Sync button clicks
+    const originalButtons = original.querySelectorAll('button, input[type="submit"]');
+    const cloneButtons = clone.querySelectorAll('button, input[type="submit"]');
+    
+    originalButtons.forEach((origButton, index) => {
+      const cloneButton = cloneButtons[index];
+      if (!cloneButton) return;
+      
+      cloneButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        origButton.click();
+      });
+    });
+  }
+
+  /**
+   * Check if nav should be simplified
+   */
+  function shouldSimplifyNav(nav) {
+    const links = nav.querySelectorAll('a');
+    return links.length <= 10; // Small navs can be moved
+  }
+
+  /**
+   * Inject base styles
    */
   function injectBaseStyles() {
     const style = document.createElement('style');
     style.id = 'elderly-mode-base-styles';
     style.textContent = `
-      /* Base elderly mode styles */
-      .elderly-mode-active * {
-        box-sizing: border-box;
-      }
-      
+      .elderly-mode-active * { box-sizing: border-box; }
       .elderly-mode-active body {
         font-size: ${CONFIG.fontSize} !important;
         line-height: ${CONFIG.lineHeight} !important;
         font-family: Arial, sans-serif !important;
       }
-      
-      /* Make all interactive elements larger */
       .elderly-mode-active button,
       .elderly-mode-active a,
       .elderly-mode-active input,
       .elderly-mode-active select {
-        min-height: ${CONFIG.minTouchTarget} !important;
-        min-width: ${CONFIG.minTouchTarget} !important;
+        min-height: 48px !important;
         padding: 12px 20px !important;
         font-size: 18px !important;
-        cursor: pointer !important;
       }
-      
-      /* Better focus indicators */
       .elderly-mode-active *:focus {
         outline: 3px solid #0066CC !important;
         outline-offset: 2px !important;
       }
-      
-      /* Split layout container */
       .elderly-split-container {
         display: flex !important;
         gap: 20px !important;
-        max-width: 100vw !important;
-        min-height: 100vh !important;
         padding: 20px !important;
-        background: #FFFFFF !important;
-        position: relative !important;
+        background: #FFF !important;
+        min-height: 100vh !important;
       }
-
-      /* Left content area */
       .elderly-content-area {
         flex: 7 !important;
         padding: 30px !important;
-        background: #FFFFFF !important;
+        background: #FFF !important;
         border: 2px solid #E0E0E0 !important;
         border-radius: 8px !important;
-        overflow-y: auto !important;
-        max-height: calc(100vh - 40px) !important;
       }
-
-      /* 原始body内容包装器 */
-      #elderly-original-body-wrapper {
-        width: 100% !important;
-      }
-
-      /* 隐藏原始交互元素但保留在DOM中 */
-      .elderly-original-element {
-        position: absolute !important;
-        left: -9999px !important;
-        width: 1px !important;
-        height: 1px !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-      }
-
-      /* Right action area */
       .elderly-action-area {
         flex: 3 !important;
         padding: 30px !important;
@@ -421,31 +538,24 @@
         max-height: calc(100vh - 40px) !important;
         overflow-y: auto !important;
       }
-      
       .elderly-action-area h2 {
         font-size: 24px !important;
         margin-bottom: 20px !important;
-        color: #333333 !important;
+        color: #333 !important;
       }
-      
-      /* Action items spacing */
-      .elderly-action-item {
-        margin-bottom: 20px !important;
-        padding: 15px !important;
-        background: #FFFFFF !important;
-        border: 1px solid #CCCCCC !important;
-        border-radius: 6px !important;
+      .elderly-action-block {
+        margin-bottom: 25px !important;
+        padding: 20px !important;
+        background: #FFF !important;
+        border: 2px solid #CCC !important;
+        border-radius: 8px !important;
       }
-      
-      .elderly-action-item label {
-        display: block !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        margin-bottom: 8px !important;
-        color: #333333 !important;
+      .elderly-action-block h3 {
+        font-size: 20px !important;
+        margin-top: 0 !important;
+        margin-bottom: 15px !important;
+        color: #0066CC !important;
       }
-      
-      /* Control panel */
       .elderly-control-panel {
         position: fixed !important;
         bottom: 20px !important;
@@ -455,451 +565,32 @@
         color: white !important;
         padding: 15px 25px !important;
         border-radius: 30px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
         cursor: pointer !important;
         font-size: 18px !important;
         font-weight: bold !important;
         border: none !important;
       }
-      
       .elderly-control-panel:hover {
         background: #0052A3 !important;
-        transform: scale(1.05) !important;
-      }
-      
-      /* Hidden elements */
-      .elderly-hidden {
-        display: none !important;
       }
     `;
     document.head.appendChild(style);
   }
 
   /**
-   * Remove clutter elements (ads, popups, etc.)
-   */
-  function removeClutter(selectors) {
-    if (!selectors || selectors.length === 0) return;
-    
-    selectors.forEach(selector => {
-      try {
-        document.querySelectorAll(selector).forEach(el => {
-          el.classList.add('elderly-hidden');
-        });
-      } catch (error) {
-        console.warn('[Elderly Mode] Invalid selector:', selector);
-      }
-    });
-  }
-
-  /**
-   * Enlarge all text
-   */
-  function enlargeText() {
-    document.documentElement.classList.add('elderly-mode-active');
-  }
-
-  /**
-   * Apply split layout: left content, right actions
-   * 改进版: 使用CSS而非破坏性DOM操作,保留事件监听器
-   */
-  function applySplitLayout() {
-    console.log('[Elderly Mode] Applying split layout...');
-
-    // 先隐藏body内容,避免闪烁
-    document.body.style.visibility = 'hidden';
-
-    // 创建容器结构
-    const container = document.createElement('div');
-    container.className = 'elderly-split-container';
-    container.id = 'elderly-mode-container';
-
-    const contentArea = document.createElement('div');
-    contentArea.className = 'elderly-content-area';
-    contentArea.id = 'elderly-content-area';
-
-    const actionArea = document.createElement('div');
-    actionArea.className = 'elderly-action-area';
-    actionArea.id = 'elderly-action-area';
-
-    // 添加操作区标题
-    const actionTitle = document.createElement('h2');
-    actionTitle.textContent = '操作区 (Actions)';
-    actionArea.appendChild(actionTitle);
-
-    // 收集所有交互元素
-    const interactiveElements = collectInteractiveElements();
-
-    // 使用事件委托处理交互元素
-    interactiveElements.forEach((el, index) => {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'elderly-action-item';
-      wrapper.dataset.originalElementId = `elderly-ref-${index}`;
-
-      // 给原始元素添加标记
-      el.dataset.elderlyRef = `elderly-ref-${index}`;
-      el.classList.add('elderly-original-element');
-
-      // 获取元素标签
-      const label = getElementLabel(el);
-      if (label) {
-        const labelEl = document.createElement('label');
-        labelEl.textContent = label;
-        wrapper.appendChild(labelEl);
-      }
-
-      // 创建代理元素(不是克隆,而是创建新的代理)
-      const proxy = createProxyElement(el, index);
-      wrapper.appendChild(proxy);
-      actionArea.appendChild(wrapper);
-
-      // 隐藏原始元素(用CSS而不是删除)
-      el.classList.add('elderly-hidden');
-      el.setAttribute('aria-hidden', 'true');
-      el.tabIndex = -1; // 禁止Tab键访问
-    });
-
-    // 如果没有交互元素
-    if (interactiveElements.length === 0) {
-      const noActions = document.createElement('p');
-      noActions.textContent = '此页面没有检测到输入框或按钮。';
-      noActions.style.color = '#666666';
-      actionArea.appendChild(noActions);
-    }
-
-    // 将原始body包装到内容区(不删除,保留所有事件)
-    // 使用CSS让原始内容在视觉上出现在左侧
-    const originalBodyWrapper = document.createElement('div');
-    originalBodyWrapper.id = 'elderly-original-body-wrapper';
-
-    // 将body的所有直接子元素移到wrapper中(除了我们的容器)
-    Array.from(document.body.children).forEach(child => {
-      if (!child.id || !child.id.startsWith('elderly-')) {
-        originalBodyWrapper.appendChild(child);
-      }
-    });
-
-    contentArea.appendChild(originalBodyWrapper);
-
-    // 组装结构
-    container.appendChild(contentArea);
-    container.appendChild(actionArea);
-
-    // 将容器添加到body开头
-    document.body.insertBefore(container, document.body.firstChild);
-
-    // 恢复可见性
-    document.body.style.visibility = 'visible';
-
-    // 启动MutationObserver监听动态变化
-    startDynamicContentObserver();
-
-    console.log('[Elderly Mode] Split layout applied!');
-  }
-
-  /**
-   * Collect all interactive elements from the page
-   */
-  function collectInteractiveElements() {
-    const selectors = [
-      'input:not([type="hidden"])',
-      'button:not(.elderly-control-panel)',
-      'select',
-      'textarea',
-      'a[href^="#"]', // Internal navigation links
-      '[role="button"]',
-      '[onclick]'
-    ];
-    
-    const elements = [];
-    const seen = new Set();
-    
-    selectors.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => {
-        // Avoid duplicates
-        if (!seen.has(el)) {
-          seen.add(el);
-          // Filter out hidden elements
-          if (el.offsetParent !== null) {
-            elements.push(el);
-          }
-        }
-      });
-    });
-    
-    return elements;
-  }
-
-  /**
-   * Get appropriate label for an element
-   */
-  function getElementLabel(element) {
-    // Check for associated label
-    if (element.id) {
-      const label = document.querySelector(`label[for="${element.id}"]`);
-      if (label) return label.textContent.trim();
-    }
-    
-    // Check for parent label
-    const parentLabel = element.closest('label');
-    if (parentLabel) {
-      return parentLabel.textContent.replace(element.textContent, '').trim();
-    }
-    
-    // Check for placeholder
-    if (element.placeholder) {
-      return element.placeholder;
-    }
-    
-    // Check for button text
-    if (element.tagName === 'BUTTON' || element.tagName === 'A') {
-      return element.textContent.trim();
-    }
-    
-    // Check for aria-label
-    if (element.getAttribute('aria-label')) {
-      return element.getAttribute('aria-label');
-    }
-    
-    // Check for name attribute
-    if (element.name) {
-      return element.name.replace(/[-_]/g, ' ');
-    }
-    
-    // Check for type
-    if (element.type) {
-      return element.type.charAt(0).toUpperCase() + element.type.slice(1);
-    }
-    
-    return 'Input Field';
-  }
-
-  /**
-   * 创建代理元素 - 不克隆,而是创建新元素并转发事件
-   * 这样可以完美保留原始元素的所有React/Vue事件监听器
-   */
-  function createProxyElement(original, index) {
-    const tagName = original.tagName.toLowerCase();
-    let proxy;
-
-    // 根据元素类型创建对应的代理
-    if (tagName === 'input' || tagName === 'textarea') {
-      proxy = document.createElement(tagName);
-      proxy.type = original.type || 'text';
-      proxy.value = original.value || '';
-      proxy.placeholder = original.placeholder || '';
-      proxy.name = original.name || '';
-
-      // 双向同步
-      proxy.addEventListener('input', (e) => {
-        original.value = e.target.value;
-        // 触发原始元素的事件(兼容React等框架)
-        const event = new Event('input', { bubbles: true });
-        Object.defineProperty(event, 'target', { writable: false, value: original });
-        original.dispatchEvent(event);
-      });
-
-      proxy.addEventListener('change', (e) => {
-        original.value = e.target.value;
-        const event = new Event('change', { bubbles: true });
-        Object.defineProperty(event, 'target', { writable: false, value: original });
-        original.dispatchEvent(event);
-      });
-
-      // 从原始元素同步回代理(处理程序化更新)
-      const syncFromOriginal = () => {
-        if (proxy.value !== original.value) {
-          proxy.value = original.value;
-        }
-      };
-      setInterval(syncFromOriginal, 100); // 每100ms检查一次
-
-    } else if (tagName === 'button' || tagName === 'a') {
-      proxy = document.createElement('button');
-      proxy.textContent = original.textContent.trim() || original.value || '按钮';
-      proxy.className = 'elderly-proxy-button';
-
-      proxy.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // 直接触发原始元素的点击
-        console.log(`[Elderly Mode] Proxy button clicked, triggering original element`);
-        original.click();
-      });
-
-    } else if (tagName === 'select') {
-      proxy = document.createElement('select');
-      // 复制所有option
-      Array.from(original.options).forEach(option => {
-        const newOption = document.createElement('option');
-        newOption.value = option.value;
-        newOption.textContent = option.textContent;
-        newOption.selected = option.selected;
-        proxy.appendChild(newOption);
-      });
-
-      proxy.addEventListener('change', (e) => {
-        original.value = e.target.value;
-        const event = new Event('change', { bubbles: true });
-        Object.defineProperty(event, 'target', { writable: false, value: original });
-        original.dispatchEvent(event);
-      });
-
-    } else {
-      // 其他类型的交互元素,创建通用按钮
-      proxy = document.createElement('button');
-      proxy.textContent = original.textContent.trim() || '交互元素';
-      proxy.addEventListener('click', (e) => {
-        e.preventDefault();
-        original.click();
-      });
-    }
-
-    proxy.dataset.elderlyProxy = index;
-    proxy.className += ' elderly-proxy-element';
-
-    return proxy;
-  }
-
-  /**
-   * MutationObserver监听器 - 处理SPA应用的动态内容
-   */
-  function startDynamicContentObserver() {
-    const observer = new MutationObserver((mutations) => {
-      let needsUpdate = false;
-
-      mutations.forEach((mutation) => {
-        // 检查是否有新的交互元素添加
-        if (mutation.addedNodes.length > 0) {
-          mutation.addedNodes.forEach(node => {
-            if (node.nodeType === 1) { // Element节点
-              // 检查是否是交互元素
-              const isInteractive = node.matches && (
-                node.matches('button') ||
-                node.matches('input') ||
-                node.matches('select') ||
-                node.matches('textarea')
-              );
-
-              if (isInteractive && !node.dataset.elderlyRef && !node.classList.contains('elderly-proxy-element')) {
-                needsUpdate = true;
-              }
-            }
-          });
-        }
-      });
-
-      if (needsUpdate) {
-        console.log('[Elderly Mode] Detected new interactive elements, updating...');
-        // 防抖: 300ms后更新
-        clearTimeout(window.elderlyUpdateTimeout);
-        window.elderlyUpdateTimeout = setTimeout(() => {
-          updateActionArea();
-        }, 300);
-      }
-    });
-
-    // 监听整个body的变化
-    const contentWrapper = document.getElementById('elderly-original-body-wrapper');
-    if (contentWrapper) {
-      observer.observe(contentWrapper, {
-        childList: true,
-        subtree: true
-      });
-    }
-
-    window.elderlyMutationObserver = observer;
-  }
-
-  /**
-   * 更新操作区 - 当检测到新的交互元素时
-   */
-  function updateActionArea() {
-    const actionArea = document.getElementById('elderly-action-area');
-    if (!actionArea) return;
-
-    // 收集所有尚未处理的交互元素
-    const newElements = collectInteractiveElements().filter(el => !el.dataset.elderlyRef);
-
-    if (newElements.length === 0) return;
-
-    console.log(`[Elderly Mode] Adding ${newElements.length} new interactive elements`);
-
-    let currentMaxIndex = 0;
-    document.querySelectorAll('[data-elderly-ref]').forEach(el => {
-      const index = parseInt(el.dataset.elderlyRef.replace('elderly-ref-', ''));
-      if (index > currentMaxIndex) currentMaxIndex = index;
-    });
-
-    newElements.forEach((el, i) => {
-      const index = currentMaxIndex + i + 1;
-      const wrapper = document.createElement('div');
-      wrapper.className = 'elderly-action-item';
-
-      el.dataset.elderlyRef = `elderly-ref-${index}`;
-      el.classList.add('elderly-original-element');
-
-      const label = getElementLabel(el);
-      if (label) {
-        const labelEl = document.createElement('label');
-        labelEl.textContent = label;
-        wrapper.appendChild(labelEl);
-      }
-
-      const proxy = createProxyElement(el, index);
-      wrapper.appendChild(proxy);
-      actionArea.appendChild(wrapper);
-
-      el.classList.add('elderly-hidden');
-      el.setAttribute('aria-hidden', 'true');
-      el.tabIndex = -1;
-    });
-  }
-
-  /**
-   * Apply high contrast mode
-   */
-  function applyHighContrast() {
-    const style = document.createElement('style');
-    style.id = 'elderly-mode-high-contrast';
-    style.textContent = `
-      .elderly-mode-active {
-        filter: contrast(1.3) !important;
-      }
-      
-      .elderly-mode-active body {
-        background: #FFFFFF !important;
-        color: #000000 !important;
-      }
-      
-      .elderly-mode-active a {
-        color: #0000EE !important;
-        text-decoration: underline !important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  /**
-   * Add control panel for toggling elderly mode
+   * Add control panel
    */
   function addControlPanel() {
     const panel = document.createElement('button');
     panel.className = 'elderly-control-panel';
     panel.textContent = '👴 Elderly Mode ON';
-    panel.title = 'Click to disable Elderly Mode';
-    
-    panel.addEventListener('click', () => {
-      if (confirm('Do you want to exit Elderly Mode and restore the original page?')) {
-        window.location.reload();
-      }
-    });
-    
+    panel.onclick = () => {
+      if (confirm('Exit Elderly Mode?')) location.reload();
+    };
     document.body.appendChild(panel);
   }
 
-  // Start initialization
+  // Start
   init();
 
 })();
