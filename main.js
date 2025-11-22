@@ -15,7 +15,7 @@
   if (window.elderlyModeActive) {
     // If already active, we might be on a new "page" in an SPA, or user wants to reset.
     // Let's clean up and re-run.
-    const existingContainer = document.querySelector('.elderly-split-container');
+    const existingContainer = document.querySelector('.elderly-action-area');
     if (existingContainer) {
       // Restore original body content if possible? 
       // Actually, our split layout moved everything into contentArea. 
@@ -30,14 +30,8 @@
       // Let's try to re-initialize.
       console.log('[Elderly Mode] Re-initializing...');
       document.documentElement.classList.remove('elderly-mode-active');
+      document.documentElement.classList.remove('elderly-mode-layout');
       if (existingContainer) {
-        // Move content back to body
-        const contentArea = existingContainer.querySelector('.elderly-content-area');
-        if (contentArea) {
-          while (contentArea.firstChild) {
-            document.body.appendChild(contentArea.firstChild);
-          }
-        }
         existingContainer.remove();
         const panel = document.querySelector('.elderly-control-panel');
         if (panel) panel.remove();
@@ -223,7 +217,9 @@
 
     containers.forEach(container => {
       if (!isVisible(container)) return;
-      const buttons = container.querySelectorAll('button, a.button, [role="button"]');
+      const buttons = Array.from(container.querySelectorAll('button, a.button, [role="button"]'))
+        .filter(btn => isVisible(btn));
+
       if (buttons.length >= 2) {
         groups.push(container);
       }
@@ -380,6 +376,7 @@
   function deduplicateBlocks(blocks) {
     const unique = [];
     const seenTypes = new Set();
+    const seenActions = new Set();
 
     // Sort by priority first?
     // Actually, we just want to avoid two "SEARCH" blocks if they look similar.
@@ -401,6 +398,12 @@
         } else {
           unique.push(block);
         }
+      } else if (block.type === BlockType.ACTION) {
+        // Deduplicate actions by content
+        const content = block.element.innerText.trim();
+        if (seenActions.has(content)) return;
+        seenActions.add(content);
+        unique.push(block);
       } else {
         unique.push(block);
       }
@@ -411,25 +414,15 @@
 
   /**
    * Apply split layout with semantic blocks
+   * NEW STRATEGY: Resize body, don't move DOM
    */
   function applySplitLayout(classified) {
-    console.log('[Elderly Mode v2] Applying split layout...');
+    console.log('[Elderly Mode v2] Applying split layout (Body Resize)...');
 
-    // 1. Create the main container
-    const container = document.createElement('div');
-    container.className = 'elderly-split-container';
+    // 1. Resize the body to make room for the panel
+    document.documentElement.classList.add('elderly-mode-layout');
 
-    // 2. Create the Left Pane (Content Area)
-    // We want to move EVERYTHING currently in the body into this pane
-    const contentArea = document.createElement('div');
-    contentArea.className = 'elderly-content-area';
-
-    // Move all existing body children into contentArea
-    while (document.body.firstChild) {
-      contentArea.appendChild(document.body.firstChild);
-    }
-
-    // 3. Create the Right Pane (Action Area)
+    // 2. Create the Right Pane (Action Area)
     const actionArea = document.createElement('div');
     actionArea.className = 'elderly-action-area';
 
@@ -437,8 +430,7 @@
     actionTitle.textContent = 'Actions & Controls';
     actionArea.appendChild(actionTitle);
 
-    // 4. Populate Right Pane with extracted controls
-    // We use the classified blocks to find what to clone
+    // 3. Populate Right Pane with extracted controls
     classified.actionZone.forEach(block => {
       const wrapper = document.createElement('div');
       wrapper.className = 'elderly-action-block';
@@ -453,11 +445,9 @@
 
       // Clone the block for the right pane
       const clone = block.element.cloneNode(true);
+      clone.style.display = ''; // Ensure visible
 
-      // Ensure the clone is visible even if the original was hidden (though we aren't hiding originals anymore)
-      clone.style.display = '';
-
-      // Sync interactions between Clone (Right) and Original (Left)
+      // Sync interactions
       syncFormElements(block.element, clone);
 
       wrapper.appendChild(clone);
@@ -474,10 +464,9 @@
       actionArea.appendChild(noActions);
     }
 
-    // 5. Assemble the final layout
-    container.appendChild(contentArea);
-    container.appendChild(actionArea);
-    document.body.appendChild(container);
+    // 4. Append the panel to the HTML element (outside body if possible, or just absolute on body)
+    // Appending to body is safest, but we use fixed positioning.
+    document.body.appendChild(actionArea);
   }
 
   /**
@@ -605,35 +594,24 @@
         outline: 3px solid #0066CC !important;
         outline-offset: 2px !important;
       }
-      .elderly-split-container {
-        display: flex !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        overflow: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #FFF !important;
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        z-index: 999990 !important;
-      }
-      .elderly-content-area {
-        flex: 7 !important;
-        padding: 0 !important; /* Remove padding to keep original site look */
-        background: #FFF !important;
-        border-right: 2px solid #E0E0E0 !important;
-        overflow-y: auto !important; /* Allow scrolling independent of right pane */
-        height: 100vh !important;
+      .elderly-mode-layout body {
+        width: 70% !important;
+        margin-right: 30% !important;
+        transition: width 0.3s ease;
       }
       .elderly-action-area {
-        flex: 3 !important;
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        width: 30% !important;
+        height: 100vh !important;
         padding: 30px !important;
         background: #F5F5F5 !important;
         border-left: 2px solid #E0E0E0 !important;
-        height: 100vh !important;
         overflow-y: auto !important;
         box-shadow: -5px 0 15px rgba(0,0,0,0.05) !important;
+        z-index: 999990 !important;
+        box-sizing: border-box !important;
       }
       .elderly-action-area h2 {
         font-size: 24px !important;
