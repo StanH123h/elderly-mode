@@ -369,28 +369,9 @@
   function decideLayoutStrategy(classified) {
     const { contentZone, actionZone } = classified;
 
-    // If page is mostly a single form (login page), don't split
-    const totalForms = document.querySelectorAll('form').length;
-    const totalContent = document.querySelectorAll('article, main, .content').length;
-
-    if (totalForms >= 1 && totalContent === 0) {
-      // Likely a login/signup page - just enlarge
-      return 'enlarge-only';
-    }
-
-    // If we have ANY actions, we should split to show them
-    if (actionZone.length > 0) {
-      return 'split';
-    }
-
-    // If no actions but we have content, maybe just enlarge?
-    // But if the user clicked the button, they probably want the panel.
-    // Let's default to split if we found ANYTHING interesting, otherwise enlarge.
-    if (contentZone.length > 0) {
-      return 'enlarge-only';
-    }
-
-    return 'enlarge-only';
+    // Always use split layout to ensure consistency
+    // The user wants the right pane to be visible even if empty.
+    return 'split';
   }
 
   /**
@@ -485,9 +466,11 @@
 
     // If no actions, show message
     if (classified.actionZone.length === 0) {
-      const noActions = document.createElement('p');
-      noActions.textContent = 'No interactive elements detected.';
-      noActions.style.color = '#666';
+      const noActions = document.createElement('div');
+      noActions.innerHTML = `
+        <p style="color: #666; font-size: 18px;">No specific actions detected on this page.</p>
+        <p style="color: #888; font-size: 16px;">You can read the content on the left.</p>
+      `;
       actionArea.appendChild(noActions);
     }
 
