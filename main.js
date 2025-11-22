@@ -114,23 +114,89 @@
       removeAds: true,
       highContrast: false,
       removeSelectors: [
+        // 导航相关
         '#nav-ad-container',
+        '#nav-flyout-searchAjax',
+        '#nav-subnav',
+        '#nav-progressive-subnav',
+
+        // 广告和推广
         '.a-carousel-card[data-a-card-type="ad"]',
         '[data-component-type="sp-sponsored-result"]',
+        '[class*="sponsored"]',
+        '[class*="Sponsored"]',
+        '[id*="sponsored"]',
         '.AdHolder',
         '.sp_desktop_sponsored_label',
         '#percolate-ui-ilm_div',
-        '#nav-flyout-searchAjax',
         '.celwidget[cel_widget_id*="ad"]',
         '#rhf',
         '#dp-ads-center-promo',
         '#sims-consolidated-1',
-        '#sims-consolidated-2'
+        '#sims-consolidated-2',
+        '#desktop-banner',
+        '#mobile-banner',
+
+        // Prime会员推广
+        '#nav-flyout-prime',
+        '#nav-flyout-amazonprime',
+
+        // Hero视频和轮播图
+        '#desktop-tall-hero-video_desktop-gateway-atf_0',
+        '._desktop-tall-hero-video_style_lazy-video-wrapper__WM56t',
+        '[class*="hero-video"]',
+        '[class*="tall-hero"]',
+        '.gw-desktop-herotator',
+        '#gw-desktop-herotator',
+
+        // Rufus AI助手
+        '[id*="rufus"]',
+        '[class*="rufus"]',
+
+        // 其他干扰元素
+        '.nav-sprite-v1',
+        '#nav-sprite-v1',
+        '.nav-timeline-prime-icon',
+        '[data-cel-widget*="marketing"]',
+        '[class*="marketing"]',
+        '[class*="promo"]',
+        '.a-popover',
+        '.a-declarative[data-action*="popup"]'
       ],
       keepSelectors: [
-        'input', 'button', 'select', '#productTitle',
-        '#priceblock_ourprice', '#priceblock_dealprice',
-        '.product-image', '#feature-bullets', '#productDescription'
+        // 基础表单元素
+        'input', 'button', 'select', 'textarea',
+
+        // 搜索和导航
+        '#twotabsearchtextbox',
+        '#nav-search-submit-button',
+        '#nav-cart',
+        '#nav-cart-count',
+        '#nav-orders',
+        '#nav-link-accountList',
+        '#nav-global-location-popover-link',
+        '#searchDropdownBox',
+
+        // 商品详情
+        '#productTitle',
+        '#priceblock_ourprice',
+        '#priceblock_dealprice',
+        '.product-image',
+        '#feature-bullets',
+        '#productDescription',
+        '.a-price',
+        '.a-button-primary',
+        '#add-to-cart-button',
+        '#buy-now-button',
+
+        // 内容结构
+        'h1', 'h2', 'h3',
+        'article', 'main',
+        '.a-link-normal',
+        '.a-cardui',
+        '[data-component-type="s-search-result"]',
+        '.s-result-item',
+        '.gw-card-layout'
       ]
     },
     'cnn-com': {
